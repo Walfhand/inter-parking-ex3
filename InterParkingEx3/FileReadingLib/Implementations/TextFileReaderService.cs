@@ -1,11 +1,11 @@
-﻿using InterParkingEx3.Interfaces;
+﻿using FileReadingLib.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace InterParkingEx3.Implementations
+namespace FileReadingLib.Implementations
 {
     public class TextFileReaderService : ITextFileReaderService
     {

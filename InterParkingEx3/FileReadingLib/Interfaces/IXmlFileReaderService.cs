@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace InterParkingEx3.Interfaces
+namespace FileReadingLib.Interfaces
 {
-    public interface ITextFileReaderService
+    public interface IXmlFileReaderService
     {
         Task<string> Read(string filePath);
+        Task<TModel> Read<TModel>(string filePath);
     }
 }

@@ -17,7 +17,6 @@ namespace InterParkingEx3
             IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService();
             IRoleService roleService = new RoleService();
             bool errorToRead = true;
-
             while (errorToRead) 
             {
                 UseRole(roleService);

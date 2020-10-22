@@ -13,51 +13,77 @@ namespace InterParkingEx3
     {
         static async Task Main(string[] args)
         {
-            IEncryptService encryptService = new EncryptService();
-            ITextFileReaderService textFileReader = new TextFileReaderService(encryptService);
-            IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService(encryptService);
-            IJsonFileReaderService jsonFileReaderService = new JsonFileReaderService(encryptService);
-            IRoleService roleService = new RoleService();
-            
-            bool errorToRead = true;
-            while (errorToRead) 
+            bool endApplication = false;
+            while (!endApplication)
             {
-                UseRole(roleService);
-                FileType fileType = SelectFileType(roleService);
-                try
+                IEncryptService encryptService = new EncryptService();
+                ITextFileReaderService textFileReader = new TextFileReaderService(encryptService);
+                IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService(encryptService);
+                IJsonFileReaderService jsonFileReaderService = new JsonFileReaderService(encryptService);
+                IRoleService roleService = new RoleService();
+                Console.Clear();
+                bool errorToRead = true;
+
+                while (errorToRead)
                 {
-                    string[] fileNames;
-                    fileNames = FilesToRead(fileType);
-                    if ((bool)!fileNames?.Any())
+                    UseRole(roleService);
+                    FileType fileType = SelectFileType(roleService);
+                    try
                     {
-                        Console.WriteLine($"No file found for type {fileType}. Make sure you have a file ending with '.fileType' " +
-                            "in the Files folder of the 'InterparkingEx3' project. Also check that the file is set to " +
-                            "'copy always' otherwise it will not work.", ConsoleColor.Red);
-                    }
-                    else
-                    {
-                        switch (fileType)
+                        string[] fileNames;
+                        fileNames = FilesToRead(fileType);
+                        if ((bool)!fileNames?.Any())
                         {
-                            case FileType.Xml:
-                                await ReadXml(fileNames, xmlFileReaderService, roleService);
-                                break;
-                            case FileType.Txt:
-                                await ReadTxtFile(fileNames, roleService, textFileReader, fileType);
-                                break;
-                            case FileType.Json:
-                                await ReadJsonFile(fileNames, jsonFileReaderService, roleService);
-                                break;
+                            Console.WriteLine($"No file found for type {fileType}. Make sure you have a file ending with '.fileType' " +
+                                "in the Files folder of the 'InterparkingEx3' project. Also check that the file is set to " +
+                                "'copy always' otherwise it will not work.", ConsoleColor.Red);
                         }
-                        errorToRead = false;
+                        else
+                        {
+                            switch (fileType)
+                            {
+                                case FileType.Xml:
+                                    await ReadXml(fileNames, xmlFileReaderService, roleService);
+                                    break;
+                                case FileType.Txt:
+                                    await ReadTxtFile(fileNames, roleService, textFileReader, fileType);
+                                    break;
+                                case FileType.Json:
+                                    await ReadJsonFile(fileNames, jsonFileReaderService, roleService);
+                                    break;
+                            }
+                            errorToRead = false;
+                        }
+
                     }
-                    
+                    catch (Exception e)
+                    {
+                        WriteException(e);
+                        errorToRead = true;
+                    }
                 }
-                catch (Exception e)
+
+                bool inputIsCorrect = false;
+                while (!inputIsCorrect)
                 {
-                    WriteException(e);
-                    errorToRead = true;
+                    Console.WriteLine("Do you still want to read a file? (y/n)");
+                    switch (Console.ReadLine())
+                    {
+                        case "y":
+                            inputIsCorrect = true;
+                            break;
+                        case "n":
+                            inputIsCorrect = true;
+                            endApplication = true;
+                            break;
+                        default:
+                            Console.WriteLine("The value entered is incorrect");
+                            inputIsCorrect = false;
+                            break;
+                    }
                 }
             }
+            
 
         }
 
@@ -204,12 +230,13 @@ namespace InterParkingEx3
             bool inputIsValid = false;
             while (!inputIsValid)
             {
+                Console.WriteLine("Choose the file you want to read");
                 for (int i = 0; i < fileNames.Length; i++)
                 {
                     Console.WriteLine($"{fileNames[i]} --> {i}");
                 }
 
-                if (int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= fileNames.Length - 1 && fileInput <= fileNames.Length - 1)
+                if (int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= 0 && fileInput <= fileNames.Length - 1)
                 {
                     inputIsValid = true;
                     string fileName = fileNames[fileInput];
@@ -299,6 +326,7 @@ namespace InterParkingEx3
                         break;
                     case "n":
                         await SelectFile(fileNames,roleService,async (path) => await readFunc(path));
+                        inputIsValid = true;
                         break;
                     default:
                         inputIsValid = false;

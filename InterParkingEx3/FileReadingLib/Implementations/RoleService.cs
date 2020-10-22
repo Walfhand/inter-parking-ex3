@@ -35,6 +35,7 @@ namespace FileReadingLib.Implementations
                 RoleType.Admin => true,
                 RoleType.Xml => fileExtension == "xml",
                 RoleType.Text => fileExtension == "txt",
+                RoleType.Json => fileExtension == "json",
                 _ => false,
             };
         }
@@ -55,6 +56,7 @@ namespace FileReadingLib.Implementations
             {
                 FileType.Xml => _role == RoleType.Xml,
                 FileType.Txt => _role == RoleType.Text,
+                FileType.Json => _role == RoleType.Json,
                 _ => false,
             };
         }

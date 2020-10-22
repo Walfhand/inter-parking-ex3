@@ -9,5 +9,6 @@ namespace FileReadingLib.Enums
         Admin = 1,
         Xml = 2,
         Text = 3,
+        Json = 4,
     }
 }

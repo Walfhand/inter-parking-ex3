@@ -24,23 +24,15 @@ namespace InterParkingEx3
                 FileType fileType = SelectFileType(roleService);
                 try
                 {
-                    Console.WriteLine("Choose the file you want to read");
+                   string[] fileNames;
+                   fileNames = FilesToRead(fileType);
                     switch (fileType)
                     {
                         case FileType.Xml:
-                            string[] fileNames;
-                            if (roleService.GetCurrentRole() == null)
-                            {
-                                fileNames = FilesToRead(fileType);
-                            }
-                            else
-                            {
-                                fileNames = FilesToRead(roleService);
-                            }
                             await ReadXml(fileNames, xmlFileReaderService, roleService);
                             break;
                         case FileType.Txt:
-                            await ReadTxtFile(textFileReader, fileType);
+                            await ReadTxtFile(fileNames,roleService,textFileReader, fileType);
                             break;
                     }
                     errorToRead = false;
@@ -56,33 +48,9 @@ namespace InterParkingEx3
 
         static async Task ReadXml(string[] fileNames , IXmlFileReaderService xmlFileReaderService, IRoleService roleService)
         {
-            bool inputValid = false;
-            while (!inputValid)
-            {
-                for (int i = 0; i < fileNames.Length; i++)
-                {
-                    Console.WriteLine($"{fileNames[i]} --> {i}");
-                }
-
-                if(int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= fileNames.Length -1 && fileInput <= fileNames.Length - 1)
-                {
-                    inputValid = true;
-                    string fileName = fileNames[fileInput];
-                    if (!roleService.IsAuthorizedToReadFile(fileName))
-                    {
-                        throw new Exception("You are not authorized to view this file");
-                    }
-
-                    Console.WriteLine(await xmlFileReaderService.Read(GetFilePath(fileName)));
-                }
-                else
-                {
-                    inputValid = false;
-                    Console.WriteLine("The value entered is incorrect");
-                }
-            }
-                
-
+            await ReadEncryptedFile(fileNames, roleService,
+                async (path, encrypt) => await xmlFileReaderService.ReadEncrypt(path, encrypt),
+                async (path) => await xmlFileReaderService.Read(path));
         }
 
         static string GetDirectoryPath()
@@ -92,28 +60,6 @@ namespace InterParkingEx3
         static string GetFilePath(string fileName)
         {
             return $"{GetDirectoryPath()}\\{fileName}";
-        }
-
-        static string[] FilesToRead(IRoleService roleService)
-        {
-            RoleType? currentRole = roleService.GetCurrentRole();
-            DirectoryInfo directory = new DirectoryInfo(GetDirectoryPath());
-            FileInfo[] files = new FileInfo[0];
-            switch (currentRole)
-            {
-                case RoleType.Admin:
-                case null:
-                    files = directory.GetFiles("*");
-                    break;
-                case RoleType.Xml:
-                    files = directory.GetFiles("*.xml");
-                    break;
-                case RoleType.Text:
-                    files = directory.GetFiles("*.txt");
-                    break;
-            }
-
-            return files.Select(f => f.Name).ToArray();
         }
 
         static string[] FilesToRead(FileType fileType)
@@ -226,13 +172,75 @@ namespace InterParkingEx3
             return Console.ReadLine();
         }
 
-
-        static async Task ReadTxtFile(ITextFileReaderService textFileReader, FileType fileType)
+        static async Task SelectFile(string[] fileNames, IRoleService roleService, Func<string,Task<string>> readfunc)
         {
             bool inputIsValid = false;
             while (!inputIsValid)
             {
-                Console.WriteLine("Do you want to read an encrypted text file? (y/n)");
+                for (int i = 0; i < fileNames.Length; i++)
+                {
+                    Console.WriteLine($"{fileNames[i]} --> {i}");
+                }
+
+                if (int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= fileNames.Length - 1 && fileInput <= fileNames.Length - 1)
+                {
+                    inputIsValid = true;
+                    string fileName = fileNames[fileInput];
+                    if (!roleService.IsAuthorizedToReadFile(fileName))
+                    {
+                        throw new Exception("You are not authorized to view this file");
+                    }
+
+                    Console.WriteLine(await readfunc(GetFilePath(fileName)));
+                }
+                else
+                {
+                    inputIsValid = false;
+                    Console.WriteLine("The value entered is incorrect");
+                }
+            }
+        }
+
+        static async Task SelectFileEncrypted(string[] fileNames, IRoleService roleService, 
+            EncryptionAlgorithmType encryptionAlgorithmType,
+            Func<string, EncryptionAlgorithmType, Task<string>> readfuncEncrypt)
+        {
+            bool inputIsValid = false;
+            while (!inputIsValid)
+            {
+                Console.WriteLine("Choose the file you want to read");
+                for (int i = 0; i < fileNames.Length; i++)
+                {
+                    Console.WriteLine($"{fileNames[i]} --> {i}");
+                }
+
+                if (int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= fileNames.Length - 1 && fileInput <= fileNames.Length - 1)
+                {
+                    inputIsValid = true;
+                    string fileName = fileNames[fileInput];
+                    if (!roleService.IsAuthorizedToReadFile(fileName))
+                    {
+                        throw new Exception("You are not authorized to view this file");
+                    }
+
+                    Console.WriteLine(await readfuncEncrypt(GetFilePath(fileName), encryptionAlgorithmType));
+                }
+                else
+                {
+                    inputIsValid = false;
+                    Console.WriteLine("The value entered is incorrect");
+                }
+            }
+        }
+
+        static async Task ReadEncryptedFile(string[] fileNames,IRoleService roleService,
+            Func<string, EncryptionAlgorithmType,Task<string>> readfuncEncrypt,
+            Func<string, Task<string>> readFunc)
+        {
+            bool inputIsValid = false;
+            while (!inputIsValid)
+            {
+                Console.WriteLine("Do you want to read an encrypted file? (y/n)");
                 switch (Console.ReadLine())
                 {
                     case "y":
@@ -251,7 +259,8 @@ namespace InterParkingEx3
                             if (int.TryParse(Console.ReadLine(), out int choiceEncryptType) && choiceEncryptType >= firstEncryptionValue && choiceEncryptType <= lastEncryptionValue)
                             {
                                 inputIsValid = true;
-                                Console.WriteLine(await textFileReader.ReadEncrypt(GetPath(fileType), (EncryptionAlgorithmType)choiceEncryptType));
+                                await SelectFileEncrypted(fileNames, roleService, (EncryptionAlgorithmType)choiceEncryptType,
+                                    async (path, algo) => await readfuncEncrypt(path, algo));
                             }
                             else
                             {
@@ -259,10 +268,10 @@ namespace InterParkingEx3
                                 Console.WriteLine("The value entered is incorrect");
                             }
                         }
-                        
+
                         break;
                     case "n":
-                        Console.WriteLine(await textFileReader.Read(GetPath(fileType)));
+                        await SelectFile(fileNames,roleService,async (path) => await readFunc(path));
                         break;
                     default:
                         inputIsValid = false;
@@ -270,7 +279,13 @@ namespace InterParkingEx3
                         break;
                 }
             }
-            
+        }
+
+        static async Task ReadTxtFile(string[] fileNames,IRoleService roleService,ITextFileReaderService textFileReader, FileType fileType)
+        {
+            await ReadEncryptedFile(fileNames, roleService, 
+                async (path, encrypt) => await textFileReader.ReadEncrypt(path, encrypt), 
+                async (path) => await textFileReader.Read(path));
         }
     }
 }

@@ -1,9 +1,6 @@
 ﻿using FileReadingLib.Enums;
 using FileReadingLib.Interfaces;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 
@@ -11,6 +8,12 @@ namespace FileReadingLib.Implementations
 {
     public class XmlFileReaderService : IXmlFileReaderService
     {
+        private readonly IEncryptService _encryptService;
+
+        public XmlFileReaderService(IEncryptService encryptService)
+        {
+            _encryptService = encryptService;
+        }
         public async Task<string> Read(string filePath)
         {
             return await File.ReadAllTextAsync(filePath);
@@ -28,15 +31,7 @@ namespace FileReadingLib.Implementations
         public async Task<string> ReadEncrypt(string filePath, EncryptionAlgorithmType encryptionAlgorithmType)
         {
             string encryptedText = await Read(filePath);
-            return encryptionAlgorithmType switch
-            {
-                EncryptionAlgorithmType.RSA => encryptedText,//decrypt rsa
-                EncryptionAlgorithmType.SHA_256 => encryptedText,//devrypt sha 256
-                EncryptionAlgorithmType.SHA_384 => encryptedText,//decrypt sha 384
-                EncryptionAlgorithmType.SHA_512 => encryptedText,//decrypt sha 512
-                EncryptionAlgorithmType.SHA_224 => encryptedText,//decrypt sha 224
-                _ => encryptedText,
-            };
+            return _encryptService.Decrypt(encryptedText, encryptionAlgorithmType);
         }
     }
 }

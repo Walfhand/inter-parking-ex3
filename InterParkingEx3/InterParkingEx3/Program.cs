@@ -13,9 +13,10 @@ namespace InterParkingEx3
     {
         static async Task Main(string[] args)
         {
-            ITextFileReaderService textFileReader = new TextFileReaderService();
-            IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService();
-            IJsonFileReaderService jsonFileReaderService = new JsonFileReaderService();
+            IEncryptService encryptService = new EncryptService();
+            ITextFileReaderService textFileReader = new TextFileReaderService(encryptService);
+            IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService(encryptService);
+            IJsonFileReaderService jsonFileReaderService = new JsonFileReaderService(encryptService);
             IRoleService roleService = new RoleService();
             
             bool errorToRead = true;
@@ -25,21 +26,31 @@ namespace InterParkingEx3
                 FileType fileType = SelectFileType(roleService);
                 try
                 {
-                   string[] fileNames;
-                   fileNames = FilesToRead(fileType);
-                    switch (fileType)
+                    string[] fileNames;
+                    fileNames = FilesToRead(fileType);
+                    if ((bool)!fileNames?.Any())
                     {
-                        case FileType.Xml:
-                            await ReadXml(fileNames, xmlFileReaderService, roleService);
-                            break;
-                        case FileType.Txt:
-                            await ReadTxtFile(fileNames,roleService,textFileReader, fileType);
-                            break;
-                        case FileType.Json:
-                            await ReadJsonFile(fileNames, jsonFileReaderService, roleService);
-                            break;
+                        Console.WriteLine($"No file found for type {fileType}. Make sure you have a file ending with '.fileType' " +
+                            "in the Files folder of the 'InterparkingEx3' project. Also check that the file is set to " +
+                            "'copy always' otherwise it will not work.", ConsoleColor.Red);
                     }
-                    errorToRead = false;
+                    else
+                    {
+                        switch (fileType)
+                        {
+                            case FileType.Xml:
+                                await ReadXml(fileNames, xmlFileReaderService, roleService);
+                                break;
+                            case FileType.Txt:
+                                await ReadTxtFile(fileNames, roleService, textFileReader, fileType);
+                                break;
+                            case FileType.Json:
+                                await ReadJsonFile(fileNames, jsonFileReaderService, roleService);
+                                break;
+                        }
+                        errorToRead = false;
+                    }
+                    
                 }
                 catch (Exception e)
                 {
@@ -52,7 +63,9 @@ namespace InterParkingEx3
 
         static async Task ReadJsonFile(string[] fileNames, IJsonFileReaderService jsonFileReaderService, IRoleService roleService)
         {
-            await SelectFile(fileNames, roleService, async (path) => await jsonFileReaderService.Read(path));
+            await ReadEncryptedFile(fileNames, roleService,
+                async (path, encrypt) => await jsonFileReaderService.ReadEncrypt(path, encrypt),
+                async (path) => await jsonFileReaderService.Read(path));
         }
 
         static async Task ReadXml(string[] fileNames , IXmlFileReaderService xmlFileReaderService, IRoleService roleService)

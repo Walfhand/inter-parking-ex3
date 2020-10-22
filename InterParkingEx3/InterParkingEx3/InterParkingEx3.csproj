@@ -23,6 +23,9 @@
     <None Update="Files\TextJson.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Files\TextJsonEncrypted.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Files\xmlFile.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

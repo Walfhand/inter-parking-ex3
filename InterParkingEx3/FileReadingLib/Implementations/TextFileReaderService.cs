@@ -10,6 +10,12 @@ namespace FileReadingLib.Implementations
 {
     public class TextFileReaderService : ITextFileReaderService
     {
+        private readonly IEncryptService _encryptService;
+
+        public TextFileReaderService(IEncryptService encryptService)
+        {
+            _encryptService = encryptService;
+        }
         public async Task<string> Read(string filePath)
         {
             return await File.ReadAllTextAsync(filePath);
@@ -18,26 +24,7 @@ namespace FileReadingLib.Implementations
         public async Task<string> ReadEncrypt(string filePath, EncryptionAlgorithmType encryptionAlgorithmType)
         {
             string encryptedText = await Read(filePath);
-            switch (encryptionAlgorithmType)
-            {
-                case EncryptionAlgorithmType.RSA:
-                    //decrypt rsa
-                    return encryptedText;
-                case EncryptionAlgorithmType.SHA_256:
-                    //devrypt sha 256
-                    return encryptedText;
-                case EncryptionAlgorithmType.SHA_384:
-                    //decrypt sha 384
-                    return encryptedText;
-                case EncryptionAlgorithmType.SHA_512:
-                    //decrypt sha 512
-                    return encryptedText;
-                case EncryptionAlgorithmType.SHA_224:
-                    //decrypt sha 224
-                    return encryptedText;
-                default:
-                    return encryptedText;
-            }
+            return _encryptService.Decrypt(encryptedText, encryptionAlgorithmType);
         }
     }
 }

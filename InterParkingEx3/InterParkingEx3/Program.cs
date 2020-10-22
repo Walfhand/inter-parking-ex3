@@ -2,71 +2,223 @@
 using FileReadingLib.Implementations;
 using FileReadingLib.Interfaces;
 using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace InterParkingEx3
 {
     class Program
     {
-        private static bool choiseIsCorrect = true;
         static async Task Main(string[] args)
         {
             ITextFileReaderService textFileReader = new TextFileReaderService();
             IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService();
-            
-            bool errorToRead = false;
-            do
+            IRoleService roleService = new RoleService();
+            bool errorToRead = true;
+
+            while (errorToRead) 
             {
-                SelectFileType();
-                if(int.TryParse(Console.ReadLine(),out int choice) && choice > 0 && choice <= 2)
+                UseRole(roleService);
+                FileType fileType = SelectFileType(roleService);
+                try
                 {
-                    choiseIsCorrect = true;
-                    try
+                    Console.WriteLine("Choose the file you want to read");
+                    switch (fileType)
                     {
-                        FileType fileType = (FileType)choice;
-                        switch (fileType)
-                        {
-                            case FileType.Xml:
-                                Console.WriteLine(await xmlFileReaderService.Read(GetPath(fileType)));
-                                break;
-                            case FileType.Txt:
-                                await ReadTxtFile(textFileReader, fileType);
-                                break;
-                        }
-                        errorToRead = false;
+                        case FileType.Xml:
+                            string[] fileNames;
+                            if (roleService.GetCurrentRole() == null)
+                            {
+                                fileNames = FilesToRead(fileType);
+                            }
+                            else
+                            {
+                                fileNames = FilesToRead(roleService);
+                            }
+                            await ReadXml(fileNames, xmlFileReaderService, roleService);
+                            break;
+                        case FileType.Txt:
+                            await ReadTxtFile(textFileReader, fileType);
+                            break;
                     }
-                    catch (Exception e)
+                    errorToRead = false;
+                }
+                catch (Exception e)
+                {
+                    WriteException(e);
+                    errorToRead = true;
+                }
+            }
+
+        }
+
+        static async Task ReadXml(string[] fileNames , IXmlFileReaderService xmlFileReaderService, IRoleService roleService)
+        {
+            bool inputValid = false;
+            while (!inputValid)
+            {
+                for (int i = 0; i < fileNames.Length; i++)
+                {
+                    Console.WriteLine($"{fileNames[i]} --> {i}");
+                }
+
+                if(int.TryParse(Console.ReadLine(), out int fileInput) && fileInput >= fileNames.Length -1 && fileInput <= fileNames.Length - 1)
+                {
+                    inputValid = true;
+                    string fileName = fileNames[fileInput];
+                    if (!roleService.IsAuthorizedToReadFile(fileName))
                     {
-                        WriteException(e);
-                        errorToRead = true;
+                        throw new Exception("You are not authorized to view this file");
                     }
+
+                    Console.WriteLine(await xmlFileReaderService.Read(GetFilePath(fileName)));
                 }
                 else
                 {
-                    ChoiseIsIncorrect();
+                    inputValid = false;
+                    Console.WriteLine("The value entered is incorrect");
                 }
-                
             }
-            while (errorToRead || !choiseIsCorrect);
+                
 
         }
 
-        static void ChoiseIsIncorrect()
+        static string GetDirectoryPath()
         {
-            Console.WriteLine("The value entered is incorrect");
-            choiseIsCorrect = false;
+            return Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), @$"Files");
         }
+        static string GetFilePath(string fileName)
+        {
+            return $"{GetDirectoryPath()}\\{fileName}";
+        }
+
+        static string[] FilesToRead(IRoleService roleService)
+        {
+            RoleType? currentRole = roleService.GetCurrentRole();
+            DirectoryInfo directory = new DirectoryInfo(GetDirectoryPath());
+            FileInfo[] files = new FileInfo[0];
+            switch (currentRole)
+            {
+                case RoleType.Admin:
+                case null:
+                    files = directory.GetFiles("*");
+                    break;
+                case RoleType.Xml:
+                    files = directory.GetFiles("*.xml");
+                    break;
+                case RoleType.Text:
+                    files = directory.GetFiles("*.txt");
+                    break;
+            }
+
+            return files.Select(f => f.Name).ToArray();
+        }
+
+        static string[] FilesToRead(FileType fileType)
+        {
+            DirectoryInfo directory = new DirectoryInfo(GetDirectoryPath());
+            FileInfo[] files = new FileInfo[0];
+            switch (fileType)
+            {
+                case FileType.Xml:
+                    files = directory.GetFiles("*.xml");
+                    break;
+                case FileType.Txt:
+                    files = directory.GetFiles("*.txt");
+                    break;
+            }
+            return files.Select(f => f.Name).ToArray();
+        }
+
+        static void UseRole(IRoleService roleService)
+        {
+            bool inputValid = false;
+            while (!inputValid)
+            {
+                Console.WriteLine("Do you want to use security with roles? (y/n)");
+                string choice = Console.ReadLine();
+                switch (choice)
+                {
+                    case "y":
+                        while (!inputValid)
+                        {
+                            Console.WriteLine("Choose your role");
+                            var roles = Enum.GetValues(typeof(RoleType)).Cast<RoleType>();
+
+                            foreach (RoleType role in roles)
+                            {
+                                Console.WriteLine($"{role} --> {(int)role}");
+                            }
+
+                            int lastRoleValue = (int)roles.Last();
+                            int firstRoleValue = (int)roles.First();
+
+                            if (int.TryParse(Console.ReadLine(), out int result) && result >= firstRoleValue && result <= lastRoleValue)
+                            {
+                                roleService.UseRoleSecutiry((RoleType)result);
+                                Console.WriteLine($"You have chosen the role {(RoleType)result}");
+                                inputValid = true;
+                            }
+                            else
+                            {
+                                inputValid = false;
+                                Console.WriteLine("The value entered is incorrect");
+                            }
+                        }
+                        
+                        break;
+                    case "n":
+                        Console.WriteLine("No security!");
+                        inputValid = true;
+                        break;
+                    default:
+                        inputValid = false;
+                        Console.WriteLine("The value entered is incorrect");
+                        break;
+                }
+            }
+            
+        }
+        
         static void WriteException(Exception e)
         {
             Console.WriteLine("An error occurred while reading the file.");
             Console.WriteLine($"Error : {e.Message}");
         }
 
-        static void SelectFileType()
+        static FileType SelectFileType(IRoleService roleService)
         {
-            Console.WriteLine("Please indicate what type of file you want to read");
-            Console.WriteLine("Xml --> 1");
-            Console.WriteLine("Text --> 2");
+            bool inputValid = false;
+            bool authorized = false;
+            int fileType = 0;
+            while (!inputValid || !authorized)
+            {
+                Console.WriteLine("Please indicate what type of file you want to read");
+                Console.WriteLine("Xml --> 1");
+                Console.WriteLine("Text --> 2");
+                if (int.TryParse(Console.ReadLine(), out fileType) && fileType > 0 && fileType <= 2)
+                {
+                    if (!roleService.IsAuthorizedToReadFileType((FileType)fileType))
+                    {
+                        Console.WriteLine("You do not have sufficient rights to access this type of file.");
+                        authorized = false;
+                    }
+                    else
+                    {
+                        authorized = true;
+                    }
+                    inputValid = true;
+                }
+                else
+                {
+                    inputValid = false;
+                    Console.WriteLine("The value entered is incorrect");
+                }
+            }
+
+            return (FileType)fileType;
         }
         static string GetPath(FileType fileType)
         {
@@ -74,34 +226,51 @@ namespace InterParkingEx3
             return Console.ReadLine();
         }
 
+
         static async Task ReadTxtFile(ITextFileReaderService textFileReader, FileType fileType)
         {
-            Console.WriteLine("Do you want to read an encrypted text file? (y/n)");
-            switch (Console.ReadLine())
+            bool inputIsValid = false;
+            while (!inputIsValid)
             {
-                case "y":
-                    Console.WriteLine("Choose your encryption algorithm");
-                    foreach (EncryptionAlgorithmType encryptionAlgorithm in Enum.GetValues(typeof(EncryptionAlgorithmType)))
-                    {
-                        Console.WriteLine($"{encryptionAlgorithm} --> {(int)encryptionAlgorithm}");
-                    }
+                Console.WriteLine("Do you want to read an encrypted text file? (y/n)");
+                switch (Console.ReadLine())
+                {
+                    case "y":
+                        while (!inputIsValid)
+                        {
+                            Console.WriteLine("Choose your encryption algorithm");
+                            var encryptionsAlgo = Enum.GetValues(typeof(EncryptionAlgorithmType)).Cast<EncryptionAlgorithmType>();
+                            int firstEncryptionValue = (int)encryptionsAlgo.First();
+                            int lastEncryptionValue = (int)encryptionsAlgo.Last();
 
-                    if (int.TryParse(Console.ReadLine(), out int choiceEncryptType) && choiceEncryptType > 0 && choiceEncryptType <= 5)
-                    {
-                        Console.WriteLine(await textFileReader.ReadEncrypt(GetPath(fileType), (EncryptionAlgorithmType)choiceEncryptType));
-                    }
-                    else
-                    {
-                        ChoiseIsIncorrect();
-                    }
-                    break;
-                case "n":
-                    Console.WriteLine(await textFileReader.Read(GetPath(fileType)));
-                    break;
-                default:
-                    ChoiseIsIncorrect();
-                    break;
+                            foreach (EncryptionAlgorithmType encryptionAlgorithm in encryptionsAlgo)
+                            {
+                                Console.WriteLine($"{encryptionAlgorithm} --> {(int)encryptionAlgorithm}");
+                            }
+
+                            if (int.TryParse(Console.ReadLine(), out int choiceEncryptType) && choiceEncryptType >= firstEncryptionValue && choiceEncryptType <= lastEncryptionValue)
+                            {
+                                inputIsValid = true;
+                                Console.WriteLine(await textFileReader.ReadEncrypt(GetPath(fileType), (EncryptionAlgorithmType)choiceEncryptType));
+                            }
+                            else
+                            {
+                                inputIsValid = false;
+                                Console.WriteLine("The value entered is incorrect");
+                            }
+                        }
+                        
+                        break;
+                    case "n":
+                        Console.WriteLine(await textFileReader.Read(GetPath(fileType)));
+                        break;
+                    default:
+                        inputIsValid = false;
+                        Console.WriteLine("The value entered is incorrect");
+                        break;
+                }
             }
+            
         }
     }
 }

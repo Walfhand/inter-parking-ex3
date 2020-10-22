@@ -8,5 +8,6 @@ namespace FileReadingLib.Enums
     {
         Xml = 1,
         Txt = 2,
+        Json = 3,
     }
 }

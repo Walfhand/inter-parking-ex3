@@ -15,7 +15,9 @@ namespace InterParkingEx3
         {
             ITextFileReaderService textFileReader = new TextFileReaderService();
             IXmlFileReaderService xmlFileReaderService = new XmlFileReaderService();
+            IJsonFileReaderService jsonFileReaderService = new JsonFileReaderService();
             IRoleService roleService = new RoleService();
+            
             bool errorToRead = true;
             while (errorToRead) 
             {
@@ -33,6 +35,9 @@ namespace InterParkingEx3
                         case FileType.Txt:
                             await ReadTxtFile(fileNames,roleService,textFileReader, fileType);
                             break;
+                        case FileType.Json:
+                            await ReadJsonFile(fileNames, jsonFileReaderService, roleService);
+                            break;
                     }
                     errorToRead = false;
                 }
@@ -43,6 +48,11 @@ namespace InterParkingEx3
                 }
             }
 
+        }
+
+        static async Task ReadJsonFile(string[] fileNames, IJsonFileReaderService jsonFileReaderService, IRoleService roleService)
+        {
+            await SelectFile(fileNames, roleService, async (path) => await jsonFileReaderService.Read(path));
         }
 
         static async Task ReadXml(string[] fileNames , IXmlFileReaderService xmlFileReaderService, IRoleService roleService)
@@ -72,6 +82,9 @@ namespace InterParkingEx3
                     break;
                 case FileType.Txt:
                     files = directory.GetFiles("*.txt");
+                    break;
+                case FileType.Json:
+                    files = directory.GetFiles("*.json");
                     break;
             }
             return files.Select(f => f.Name).ToArray();
@@ -137,15 +150,22 @@ namespace InterParkingEx3
         {
             bool inputValid = false;
             bool authorized = false;
-            int fileType = 0;
+            int input = 0;
             while (!inputValid || !authorized)
             {
                 Console.WriteLine("Please indicate what type of file you want to read");
-                Console.WriteLine("Xml --> 1");
-                Console.WriteLine("Text --> 2");
-                if (int.TryParse(Console.ReadLine(), out fileType) && fileType > 0 && fileType <= 2)
+                var fileTypes = Enum.GetValues(typeof(FileType)).Cast<FileType>();
+
+                foreach (var fileType in fileTypes)
                 {
-                    if (!roleService.IsAuthorizedToReadFileType((FileType)fileType))
+                    Console.WriteLine($"{fileType} --> {(int) fileType}");
+                }
+                int firstTypeValue = (int)fileTypes.First();
+                int lastTypeValue = (int)fileTypes.Last();
+
+                if (int.TryParse(Console.ReadLine(), out input) && input >= firstTypeValue && input <= lastTypeValue)
+                {
+                    if (!roleService.IsAuthorizedToReadFileType((FileType)input))
                     {
                         Console.WriteLine("You do not have sufficient rights to access this type of file.");
                         authorized = false;
@@ -163,12 +183,7 @@ namespace InterParkingEx3
                 }
             }
 
-            return (FileType)fileType;
-        }
-        static string GetPath(FileType fileType)
-        {
-            Console.WriteLine($"Add a path to a {fileType} file");
-            return Console.ReadLine();
+            return (FileType)input;
         }
 
         static async Task SelectFile(string[] fileNames, IRoleService roleService, Func<string,Task<string>> readfunc)
